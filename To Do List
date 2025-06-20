@@ -36,7 +36,7 @@
 
  Syntax highlighting (colored parentheses or bold current token)
 
-🔹 3. 🎨 User Interface
+✅🔹 3.  User Interface
  Theme switcher: Light / Dark mode toggle
 
  Display DEG/RAD mode on screen persistently
@@ -47,7 +47,7 @@
 
  Virtual keypad for touchscreen use
 
-🔹 4. 📈 Visualization Features
+🔹 4.  Visualization Features
  Plot function graphs (using matplotlib)
 
  Plot derivatives or definite integrals over ranges
