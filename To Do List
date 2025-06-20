@@ -1,0 +1,100 @@
+✅ CORE FEATURES
+ Arithmetic operations
+
+ Trig functions with DEG/RAD toggle
+
+ Square root, exponent, logarithms
+
+ Evaluation engine with eval & safety
+
+ History window
+
+ GUI with tkinter
+
+🔁 TO-DO LIST: "Best Scientific Calculator Ever"
+🔹 1. 📐 Advanced Math Capabilities
+ Add factorial n!
+
+ Add modulus %
+
+ Add inverse trig functions (asin, acos, atan)
+
+ Add hyperbolic trig functions (sinh, cosh, tanh)
+
+ Add nth root (e.g. ⁿ√x)
+
+ Add log base n (e.g. log2(x))
+
+🔹 2. 🧮 Expression Enhancements
+ Add expression parser to auto-balance parentheses
+
+ Add support for ANS (previous answer)
+
+ Add memory buttons: M+, M-, MR, MC
+
+ Add ability to type full expressions directly (e.g. "sin(30)+log(10)")
+
+ Syntax highlighting (colored parentheses or bold current token)
+
+🔹 3. 🎨 User Interface
+ Theme switcher: Light / Dark mode toggle
+
+ Display DEG/RAD mode on screen persistently
+
+ Responsive layout (e.g. pack or grid with weight)
+
+ Add a secondary small text line for showing full expression (like modern calculators)
+
+ Virtual keypad for touchscreen use
+
+🔹 4. 📈 Visualization Features
+ Plot function graphs (using matplotlib)
+
+ Plot derivatives or definite integrals over ranges
+
+ Add a unit converter (length, temperature, etc.)
+
+🔹 5. 🔐 Security + Eval Safety
+ Replace eval() with a safe math parser (e.g. sympy, asteval, or mathjs)
+
+ Add try/except for domain errors (e.g. log(-1))
+
+🔹 6. 🧠 Learning/Help Features
+ Add tooltip help (e.g. hover over sin( to show "sine in degrees/radians")
+
+ Add "Scientific Help" window with guides
+
+ Add keyboard shortcuts for power users
+
+🔹 7. 📂 Export/Import Features
+ Save and load history to/from .txt or .json
+
+ Export graph or result as image/PDF
+
+ Save/load favorite expressions or presets
+
+🔹 8. 🌐 Online Integration (Optional)
+ Pull real constants from a web API (e.g. Planck’s constant, atomic mass)
+
+ Currency conversion API
+
+ Sync history to a cloud file
+
+🔹 9. 📱 Platform & Deployment
+ Package as .exe using pyinstaller or cx_Freeze
+
+ Convert to a web app (with Flask + HTML UI or Streamlit)
+
+ Android/iOS mobile version (using Kivy or BeeWare)
+
+🔚 Summary
+By completing this list, you’ll build a scientific calculator that:
+
+Has more functionality than most mobile apps
+
+Includes plotting, memory, parsing, and learning tools
+
+Runs as a desktop or web app
+
+Can be extended for STEM, education, or finance use cases
+
