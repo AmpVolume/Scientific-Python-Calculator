@@ -1,6 +1,12 @@
 import tkinter as tk
-from tkinter import messagebox 
+from tkinter import messagebox
 import math
+
+def root(x, n):
+    return x ** (1 / n)
+
+def logn(x, base):
+    return math.log(x, base)
 
 class ScientificCalculator:
     def __init__(self, root):
@@ -8,10 +14,10 @@ class ScientificCalculator:
         self.root.title("Scientific Calculator")
         self.expression = ""
         self.history = []
-        self.mode = "DEG"  # DEG or RAD
+        self.mode = "DEG"
 
         self.entry = tk.Entry(root, width=40, borderwidth=5, font=("Arial", 16))
-        self.entry.grid(row=0, column=0, columnspan=5, padx=10, pady=10)
+        self.entry.grid(row=0, column=0, columnspan=6, padx=10, pady=10)
 
         self.create_buttons()
 
@@ -34,23 +40,57 @@ class ScientificCalculator:
     def calculate(self):
         try:
             expr = self.expression.replace("^", "**")
+            expr = expr.replace("√", "root(")  # will assume user enters like "ⁿ√x" as root(n,x)
 
             if self.mode == "DEG":
                 expr = expr.replace("sin(", "math.sin(math.radians(")
                 expr = expr.replace("cos(", "math.cos(math.radians(")
                 expr = expr.replace("tan(", "math.tan(math.radians(")
+                expr = expr.replace("asin(", "math.degrees(math.asin(")
+                expr = expr.replace("acos(", "math.degrees(math.acos(")
+                expr = expr.replace("atan(", "math.degrees(math.atan(")
             else:
                 expr = expr.replace("sin(", "math.sin(")
                 expr = expr.replace("cos(", "math.cos(")
                 expr = expr.replace("tan(", "math.tan(")
+                expr = expr.replace("asin(", "math.asin(")
+                expr = expr.replace("acos(", "math.acos(")
+                expr = expr.replace("atan(", "math.atan(")
 
+            expr = expr.replace("sinh(", "math.sinh(")
+            expr = expr.replace("cosh(", "math.cosh(")
+            expr = expr.replace("tanh(", "math.tanh(")
             expr = expr.replace("log(", "math.log(")
             expr = expr.replace("sqrt(", "math.sqrt(")
             expr = expr.replace("exp(", "math.exp(")
             expr = expr.replace("pi", str(math.pi))
             expr = expr.replace("e", str(math.e))
+            expr = expr.replace("!", "math.factorial(")  # will need manual fix in eval call
 
-            result = eval(expr, {"__builtins__": {}}, {"math": math})
+            # Custom replacements
+            expr = expr.replace("logn(", "logn(")
+            expr = expr.replace("root(", "root(")
+
+            # Handle factorial manually
+            if "math.factorial" in expr:
+                while "math.factorial" in expr:
+                    i = expr.index("math.factorial")
+                    start = i + len("math.factorial(")
+                    end = start
+                    count = 1
+                    while count > 0 and end < len(expr):
+                        if expr[end] == "(":
+                            count += 1
+                        elif expr[end] == ")":
+                            count -= 1
+                        end += 1
+                    sub = expr[i:end]
+                    result = str(eval(sub, {"__builtins__": {}}, {"math": math}))
+                    expr = expr.replace(sub, result)
+
+            result = eval(expr, {"__builtins__": {}}, {
+                "math": math, "root": root, "logn": logn
+            })
             self.history.append(f"{self.expression} = {result}")
             self.expression = str(result)
             self.update_entry()
@@ -67,13 +107,13 @@ class ScientificCalculator:
 
     def create_buttons(self):
         buttons = [
-            ("7", 1, 0), ("8", 1, 1), ("9", 1, 2), ("/", 1, 3), ("sin(", 1, 4),
-            ("4", 2, 0), ("5", 2, 1), ("6", 2, 2), ("*", 2, 3), ("cos(", 2, 4),
-            ("1", 3, 0), ("2", 3, 1), ("3", 3, 2), ("-", 3, 3), ("tan(", 3, 4),
-            ("0", 4, 0), (".", 4, 1), ("+", 4, 2), ("^", 4, 3), ("sqrt(", 4, 4),
-            ("log(", 5, 0), ("exp(", 5, 1), ("pi", 5, 2), ("e", 5, 3), ("(", 5, 4),
-            (")", 6, 0), ("C", 6, 1), ("DEL", 6, 2), ("=", 6, 3), ("HIST", 6, 4),
-            ("MODE", 7, 0)
+            ("7", 1, 0), ("8", 1, 1), ("9", 1, 2), ("/", 1, 3), ("sin(", 1, 4), ("asin(", 1, 5),
+            ("4", 2, 0), ("5", 2, 1), ("6", 2, 2), ("*", 2, 3), ("cos(", 2, 4), ("acos(", 2, 5),
+            ("1", 3, 0), ("2", 3, 1), ("3", 3, 2), ("-", 3, 3), ("tan(", 3, 4), ("atan(", 3, 5),
+            ("0", 4, 0), (".", 4, 1), ("+", 4, 2), ("^", 4, 3), ("sqrt(", 4, 4), ("%", 4, 5),
+            ("log(", 5, 0), ("exp(", 5, 1), ("pi", 5, 2), ("e", 5, 3), ("(", 5, 4), (")", 5, 5),
+            ("sinh(", 6, 0), ("cosh(", 6, 1), ("tanh(", 6, 2), ("logn(", 6, 3), ("root(", 6, 4), ("!", 6, 5),
+            ("C", 7, 0), ("DEL", 7, 1), ("=", 7, 2), ("HIST", 7, 3), ("MODE", 7, 4)
         ]
 
         for (text, row, col) in buttons:
