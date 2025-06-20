@@ -1,9 +1,16 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, simpledialog, filedialog
 import math
 import re
+import numpy as np
+import matplotlib.pyplot as plt
+import sympy as sp
+from pint import UnitRegistry
+import json
+import threading
 
-# Custom math functions
+ureg = UnitRegistry()
+
 def root(x, n):
     return x ** (1 / n)
 
@@ -20,133 +27,51 @@ class ScientificCalculator:
         self.last_answer = "0"
         self.memory = 0
         self.theme = "dark"
-
+        self.custom_functions = {}
+        self.macros = {}
+        self.ureg = ureg
+        self.create_widgets()
         self.set_theme()
+        self.update_status()
+        self.bind_shortcuts()
 
-        self.number_font = ("Courier New", 16, "bold")
-
-        self.entry = tk.Text(root, width=40, height=2, font=("Courier New", 16), insertbackground="white")
-        self.entry.grid(row=0, column=0, columnspan=6, padx=10, pady=10)
+    def create_widgets(self):
+        self.entry = tk.Text(self.root, width=55, height=2, font=("Courier New", 16), insertbackground="white")
+        self.entry.grid(row=0, column=0, columnspan=10, padx=10, pady=10)
         self.entry.bind("<KeyRelease>", self.highlight_syntax)
 
-        self.create_buttons()
+        self.status_var = tk.StringVar()
+        self.status_bar = tk.Label(self.root, textvariable=self.status_var, anchor='w', font=("Arial", 10))
+        self.status_bar.grid(row=14, column=0, columnspan=10, sticky='we')
+
+        buttons = [
+            ("7", 1, 0), ("8", 1, 1), ("9", 1, 2), ("/", 1, 3), ("sin(", 1, 4), ("asin(", 1, 5), ("COMPLEX", 1, 6), ("CLEAR FUNCS", 1,7), ("PART DERIV", 1,8), ("INTEG", 1,9),
+            ("4", 2, 0), ("5", 2, 1), ("6", 2, 2), ("*", 2, 3), ("cos(", 2, 4), ("acos(", 2, 5), ("MATRIX", 2, 6), ("SAVE", 2, 7), ("STAT", 2, 8), ("RUN MACRO", 2, 9),
+            ("1", 3, 0), ("2", 3, 1), ("3", 3, 2), ("-", 3, 3), ("tan(", 3, 4), ("atan(", 3, 5), ("SOLVE", 3, 6), ("LOAD", 3, 7), ("DEF MACRO", 3, 8), ("CLEAR MACROS", 3, 9),
+            ("0", 4, 0), (".", 4, 1), ("+", 4, 2), ("^", 4, 3), ("sqrt(", 4, 4), ("%", 4, 5), ("PLOT", 4, 6), ("MULTI PLOT", 4, 7), ("CONVERT", 4, 8), ("EXIT", 4, 9),
+            ("log(", 5, 0), ("exp(", 5, 1), ("pi", 5, 2), ("e", 5, 3), ("(", 5, 4), (")", 5, 5), ("DEF FUNC", 5, 6), ("USE FUNC", 5,7), ("MEM+", 5, 8), ("MEM-", 5, 9),
+            ("M+", 6, 0), ("M-", 6, 1), ("MR", 6, 2), ("MC", 6, 3), ("HIST", 6, 4), ("MODE", 6, 5), ("THEME", 6, 6), ("CLEAR", 6,7), ("DEL", 6, 8), ("ANS", 6, 9)
+        ]
+
+        for (text, row, col) in buttons:
+            action = lambda x=text: self.handle_button(x)
+            tk.Button(self.root, text=text, width=7, height=2, command=action).grid(row=row, column=col, padx=2, pady=2)
 
     def set_theme(self):
-        if self.theme == "dark":
-            bg = "black"
-            fg = "white"
-        else:
-            bg = "white"
-            fg = "black"
-
+        bg = "black" if self.theme == "dark" else "white"
+        fg = "white" if self.theme == "dark" else "black"
         self.root.configure(bg=bg)
-        if hasattr(self, 'entry'):
-            self.entry.configure(bg=bg, fg=fg, insertbackground=fg)
+        self.entry.configure(bg=bg, fg=fg, insertbackground=fg)
         for widget in self.root.winfo_children():
             if isinstance(widget, tk.Button):
                 widget.configure(bg="gray20" if self.theme == "dark" else "lightgray", fg=fg)
+        self.status_bar.configure(bg=bg, fg=fg)
 
     def toggle_theme(self):
         self.theme = "light" if self.theme == "dark" else "dark"
         self.set_theme()
         self.highlight_syntax()
-
-    def add_to_expression(self, value):
-        self.entry.insert(tk.END, str(value))
-        self.highlight_syntax()
-
-    def clear_expression(self):
-        self.entry.delete("1.0", tk.END)
-
-    def delete_last(self):
-        content = self.entry.get("1.0", tk.END)[:-2]
-        self.entry.delete("1.0", tk.END)
-        self.entry.insert(tk.END, content)
-        self.highlight_syntax()
-
-    def update_entry(self):
-        self.entry.delete("1.0", tk.END)
-        self.entry.insert(tk.END, self.expression)
-        self.highlight_syntax()
-
-    def balance_parentheses(self, expr):
-        open_parens = expr.count('(')
-        close_parens = expr.count(')')
-        return expr + (')' * (open_parens - close_parens))
-
-    def calculate(self):
-        try:
-            self.expression = self.entry.get("1.0", tk.END).strip()
-            expr = self.expression.replace("^", "**")
-            expr = expr.replace("\u221a", "root(")
-            expr = expr.replace("ANS", self.last_answer)
-
-            if self.mode == "DEG":
-                expr = expr.replace("sin(", "math.sin(math.radians(")
-                expr = expr.replace("cos(", "math.cos(math.radians(")
-                expr = expr.replace("tan(", "math.tan(math.radians(")
-                expr = expr.replace("asin(", "math.degrees(math.asin(")
-                expr = expr.replace("acos(", "math.degrees(math.acos(")
-                expr = expr.replace("atan(", "math.degrees(math.atan(")
-            else:
-                expr = expr.replace("sin(", "math.sin(")
-                expr = expr.replace("cos(", "math.cos(")
-                expr = expr.replace("tan(", "math.tan(")
-                expr = expr.replace("asin(", "math.asin(")
-                expr = expr.replace("acos(", "math.acos(")
-                expr = expr.replace("atan(", "math.atan(")
-
-            expr = expr.replace("sinh(", "math.sinh(")
-            expr = expr.replace("cosh(", "math.cosh(")
-            expr = expr.replace("tanh(", "math.tanh(")
-            expr = expr.replace("log(", "math.log(")
-            expr = expr.replace("sqrt(", "math.sqrt(")
-            expr = expr.replace("exp(", "math.exp(")
-            expr = expr.replace("pi", str(math.pi))
-            expr = expr.replace("e", str(math.e))
-            expr = expr.replace("logn(", "logn(")
-            expr = expr.replace("root(", "root(")
-
-            expr = self.balance_parentheses(expr)
-
-            result = eval(expr, {"__builtins__": {}}, {
-                "math": math, "root": root, "logn": logn
-            })
-
-            self.last_answer = str(result)
-            self.history.append(f"{self.expression} = {result}")
-            self.expression = str(result)
-            self.update_entry()
-        except Exception as e:
-            self.entry.tag_add("error", "1.0", tk.END)
-            self.entry.tag_config("error", background="darkred")
-            messagebox.showerror("Error", f"Invalid Expression\n{e}")
-
-    def toggle_mode(self):
-        self.mode = "RAD" if self.mode == "DEG" else "DEG"
-        messagebox.showinfo("Mode Toggled", f"Switched to {self.mode} mode")
-
-    def show_history(self):
-        history_text = "\n".join(self.history[-10:] or ["No history yet."])
-        messagebox.showinfo("History", history_text)
-
-    def memory_add(self):
-        try:
-            self.memory += float(self.entry.get("1.0", tk.END).strip())
-        except:
-            messagebox.showerror("Error", "Invalid number for M+")
-
-    def memory_subtract(self):
-        try:
-            self.memory -= float(self.entry.get("1.0", tk.END).strip())
-        except:
-            messagebox.showerror("Error", "Invalid number for M-")
-
-    def memory_recall(self):
-        self.add_to_expression(str(self.memory))
-
-    def memory_clear(self):
-        self.memory = 0
+        self.update_status()
 
     def highlight_syntax(self, event=None):
         self.entry.tag_remove("highlight", "1.0", tk.END)
@@ -155,7 +80,7 @@ class ScientificCalculator:
         self.entry.tag_remove("error", "1.0", tk.END)
 
         content = self.entry.get("1.0", tk.END)
-        keywords = ["sin", "cos", "tan", "log", "sqrt", "exp", "pi", "e", "ANS", "root", "logn"]
+        keywords = list(self.custom_functions.keys()) + list(self.macros.keys()) + ["sin", "cos", "tan", "log", "sqrt", "exp", "pi", "e", "ANS", "root", "logn"]
         for word in keywords:
             idx = "1.0"
             while True:
@@ -171,31 +96,371 @@ class ScientificCalculator:
             end = f"1.0+{match.end()}c"
             self.entry.tag_add("number", start, end)
 
-        for match in re.finditer(r"[\^\*\+/\-%=]", content):
+        for match in re.finditer(r"[\^\*\+/\-%=,]", content):
             start = f"1.0+{match.start()}c"
             end = f"1.0+{match.end()}c"
             self.entry.tag_add("operator", start, end)
 
-        self.entry.tag_config("highlight", foreground="blue")
-        self.entry.tag_config("number", foreground="#006400", font=self.number_font)
-        self.entry.tag_config("operator", foreground="red")
+        self.entry.tag_config("highlight", foreground="cyan")
+        self.entry.tag_config("number", foreground="#00ff00", font=("Courier New", 16, "bold"))
+        self.entry.tag_config("operator", foreground="orange")
         self.entry.tag_config("error", background="darkred")
 
-    def create_buttons(self):
-        buttons = [
-            ("7", 1, 0), ("8", 1, 1), ("9", 1, 2), ("/", 1, 3), ("sin(", 1, 4), ("asin(", 1, 5),
-            ("4", 2, 0), ("5", 2, 1), ("6", 2, 2), ("*", 2, 3), ("cos(", 2, 4), ("acos(", 2, 5),
-            ("1", 3, 0), ("2", 3, 1), ("3", 3, 2), ("-", 3, 3), ("tan(", 3, 4), ("atan(", 3, 5),
-            ("0", 4, 0), (".", 4, 1), ("+", 4, 2), ("^", 4, 3), ("sqrt(", 4, 4), ("%", 4, 5),
-            ("log(", 5, 0), ("exp(", 5, 1), ("pi", 5, 2), ("e", 5, 3), ("(", 5, 4), (")", 5, 5),
-            ("sinh(", 6, 0), ("cosh(", 6, 1), ("tanh(", 6, 2), ("logn(", 6, 3), ("root(", 6, 4), ("ANS", 6, 5),
-            ("M+", 7, 0), ("M-", 7, 1), ("MR", 7, 2), ("MC", 7, 3), ("HIST", 7, 4), ("MODE", 7, 5),
-            ("C", 8, 0), ("DEL", 8, 1), ("=", 8, 2), ("THEME", 8, 3)
-        ]
+    def update_status(self):
+        self.status_var.set(f"Mode: {self.mode} | Theme: {self.theme.capitalize()} | Last Ans: {self.last_answer} | Funcs: {len(self.custom_functions)} | Macros: {len(self.macros)}")
 
-        for (text, row, col) in buttons:
-            action = lambda x=text: self.handle_button(x)
-            tk.Button(self.root, text=text, width=6, height=2, command=action).grid(row=row, column=col, padx=2, pady=2)
+    def add_to_expression(self, value):
+        self.entry.insert(tk.END, str(value))
+        self.highlight_syntax()
+
+    def clear_expression(self):
+        self.entry.delete("1.0", tk.END)
+
+    def delete_last(self):
+        content = self.entry.get("1.0", tk.END)[:-2]
+        self.entry.delete("1.0", tk.END)
+        self.entry.insert(tk.END, content)
+        self.highlight_syntax()
+
+    def balance_parentheses(self, expr):
+        open_parens = expr.count('(')
+        close_parens = expr.count(')')
+        return expr + (')' * (open_parens - close_parens))
+
+    def safe_eval(self, expr, local_vars=None):
+        if local_vars is None:
+            local_vars = {}
+
+        expr = expr.replace("^", "**")
+        for fname, fexpr in self.custom_functions.items():
+            pattern = re.compile(rf"{fname}\((.*?)\)")
+            while True:
+                match = pattern.search(expr)
+                if not match:
+                    break
+                arg = match.group(1)
+                replaced_expr = fexpr.replace('x', f'({arg})')
+                expr = expr[:match.start()] + f'({replaced_expr})' + expr[match.end():]
+
+        # Replace macros in expression
+        for mname, mlines in self.macros.items():
+            pattern = re.compile(rf"{mname}\(\)")
+            while True:
+                match = pattern.search(expr)
+                if not match:
+                    break
+                # We replace macro call with last line of macro (basic support)
+                replacement = mlines[-1] if mlines else '0'
+                expr = expr[:match.start()] + f'({replacement})' + expr[match.end():]
+
+        expr = expr.replace("ANS", self.last_answer)
+
+        if self.mode == "DEG":
+            expr = expr.replace("sin(", "math.sin(math.radians(")
+            expr = expr.replace("cos(", "math.cos(math.radians(")
+            expr = expr.replace("tan(", "math.tan(math.radians(")
+            expr = expr.replace("asin(", "math.degrees(math.asin(")
+            expr = expr.replace("acos(", "math.degrees(math.acos(")
+            expr = expr.replace("atan(", "math.degrees(math.atan(")
+        else:
+            expr = expr.replace("sin(", "math.sin(")
+            expr = expr.replace("cos(", "math.cos(")
+            expr = expr.replace("tan(", "math.tan(")
+            expr = expr.replace("asin(", "math.asin(")
+            expr = expr.replace("acos(", "math.acos(")
+            expr = expr.replace("atan(", "math.atan(")
+
+        expr = expr.replace("pi", f"math.pi")
+        expr = expr.replace("e", f"math.e")
+        expr = expr.replace("root(", "root(")
+        expr = expr.replace("logn(", "logn(")
+        expr = expr.replace("sqrt(", "math.sqrt(")
+        expr = expr.replace("exp(", "math.exp(")
+        expr = expr.replace("sinh(", "math.sinh(")
+        expr = expr.replace("cosh(", "math.cosh(")
+        expr = expr.replace("tanh(", "math.tanh(")
+        expr = expr.replace("%", "/100")
+
+        expr = self.balance_parentheses(expr)
+
+        try:
+            local_vars.update({"math": math, "np": np, "root": root, "logn": logn, "complex": complex, "ureg": self.ureg})
+            return eval(expr, {"__builtins__": None}, local_vars)
+        except Exception as e:
+            raise e
+
+    def calculate(self):
+        expr = self.entry.get("1.0", tk.END).strip()
+        try:
+            result = self.safe_eval(expr)
+            self.last_answer = str(result)
+            self.history.append(f"{expr} = {result}")
+            self.expression = str(result)
+            self.update_entry()
+            self.update_status()
+        except Exception as e:
+            messagebox.showerror("Calculation Error", f"Invalid Expression:\n{e}")
+
+    def update_entry(self):
+        self.entry.delete("1.0", tk.END)
+        self.entry.insert(tk.END, self.expression)
+        self.highlight_syntax()
+
+    def memory_add(self):
+        try:
+            val = float(self.entry.get("1.0", tk.END).strip())
+            self.memory += val
+        except Exception:
+            messagebox.showerror("Error", "Invalid number for M+")
+
+    def memory_subtract(self):
+        try:
+            val = float(self.entry.get("1.0", tk.END).strip())
+            self.memory -= val
+        except Exception:
+            messagebox.showerror("Error", "Invalid number for M-")
+
+    def memory_recall(self):
+        self.add_to_expression(str(self.memory))
+
+    def memory_clear(self):
+        self.memory = 0
+
+    def show_history(self):
+        history_text = "\n".join(self.history[-20:] or ["No history yet."])
+        messagebox.showinfo("History", history_text)
+
+    def toggle_mode(self):
+        self.mode = "RAD" if self.mode == "DEG" else "DEG"
+        self.update_status()
+        messagebox.showinfo("Mode Toggled", f"Switched to {self.mode} mode")
+
+    def plot_function(self):
+        expr = self.entry.get("1.0", tk.END).strip()
+        x_range_str = simpledialog.askstring("Input", "Enter x range (start,end), e.g. -10,10:")
+        if not x_range_str:
+            return
+        try:
+            start_str, end_str = x_range_str.split(",")
+            start, end = float(start_str), float(end_str)
+        except Exception:
+            messagebox.showerror("Error", "Invalid range format")
+            return
+
+        x_vals = np.linspace(start, end, 400)
+        try:
+            def f(x): return self.safe_eval(expr.replace("^", "**"), {"x": x})
+            y_vals = np.array([f(x) for x in x_vals], dtype=np.complex_)
+            plt.figure()
+            plt.plot(x_vals, y_vals.real, label="Real part")
+            if np.any(y_vals.imag != 0):
+                plt.plot(x_vals, y_vals.imag, label="Imag part", linestyle='--')
+            plt.title(f"Plot of: {expr}")
+            plt.legend()
+            plt.grid(True)
+            plt.show()
+        except Exception as e:
+            messagebox.showerror("Plot Error", f"Could not plot function:\n{e}")
+
+    def multi_plot(self):
+        exprs = simpledialog.askstring("Input", "Enter comma-separated functions in variable x:\n(e.g. sin(x), x^2, exp(-x))")
+        if not exprs:
+            return
+        expr_list = [e.strip() for e in exprs.split(",") if e.strip()]
+        if not expr_list:
+            messagebox.showerror("Error", "No functions provided")
+            return
+
+        x_range_str = simpledialog.askstring("Input", "Enter x range (start,end), e.g. -10,10:")
+        if not x_range_str:
+            return
+        try:
+            start_str, end_str = x_range_str.split(",")
+            start, end = float(start_str), float(end_str)
+        except Exception:
+            messagebox.showerror("Error", "Invalid range format")
+            return
+
+        x_vals = np.linspace(start, end, 400)
+        plt.figure()
+        try:
+            for expr in expr_list:
+                def f(x, expr=expr): return self.safe_eval(expr.replace("^", "**"), {"x": x})
+                y_vals = np.array([f(x) for x in x_vals], dtype=np.complex_)
+                plt.plot(x_vals, y_vals.real, label=expr)
+                if np.any(y_vals.imag != 0):
+                    plt.plot(x_vals, y_vals.imag, label=f"{expr} imag", linestyle='--')
+            plt.title("Multi-Function Plot")
+            plt.legend()
+            plt.grid(True)
+            plt.show()
+        except Exception as e:
+            messagebox.showerror("Plot Error", f"Error plotting functions:\n{e}")
+
+    def define_function(self):
+        name = simpledialog.askstring("Define Function", "Enter function name (e.g. f):")
+        if not name or not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", name):
+            messagebox.showerror("Error", "Invalid function name")
+            return
+        expr = simpledialog.askstring("Define Function", f"Enter expression for {name}(x), use variable x:")
+        if not expr:
+            return
+        self.custom_functions[name] = expr
+        messagebox.showinfo("Function Defined", f"Defined {name}(x) = {expr}")
+        self.update_status()
+
+    def use_function(self):
+        if not self.custom_functions:
+            messagebox.showinfo("No Functions", "No custom functions defined")
+            return
+        funcs_str = "\n".join([f"{k}(x) = {v}" for k, v in self.custom_functions.items()])
+        func_name = simpledialog.askstring("Use Function", f"Defined functions:\n{funcs_str}\nEnter function name to insert:")
+        if not func_name or func_name not in self.custom_functions:
+            messagebox.showerror("Error", "Function not found")
+            return
+        self.add_to_expression(f"{func_name}(")
+
+    def solve_equation(self):
+        eq_str = self.entry.get("1.0", tk.END).strip()
+        try:
+            x = sp.symbols('x')
+            eq = sp.sympify(eq_str.replace("^", "**"))
+            sol = sp.solve(eq, x)
+            messagebox.showinfo("Solution", f"Solutions for {eq_str}:\n{sol}")
+        except Exception as e:
+            messagebox.showerror("Solve Error", f"Could not solve equation:\n{e}")
+
+    def matrix_operations(self):
+        input_str = simpledialog.askstring("Matrix", "Enter matrix rows separated by ;\nElements separated by commas.\nExample: 1,2;3,4")
+        if not input_str:
+            return
+        try:
+            rows = input_str.split(";")
+            mat = np.array([list(map(float, r.split(","))) for r in rows])
+        except Exception:
+            messagebox.showerror("Matrix Error", "Invalid matrix input")
+            return
+
+        op = simpledialog.askstring("Matrix Operation", "Choose operation:\ninv - inverse\ntrans - transpose\ndet - determinant\nshow - display matrix")
+        if not op:
+            return
+
+        try:
+            if op == "inv":
+                result = np.linalg.inv(mat)
+            elif op == "trans":
+                result = mat.T
+            elif op == "det":
+                result = np.linalg.det(mat)
+            elif op == "show":
+                result = mat
+            else:
+                messagebox.showerror("Matrix Error", "Unknown operation")
+                return
+            messagebox.showinfo("Matrix Result", f"{op} result:\n{result}")
+        except Exception as e:
+            messagebox.showerror("Matrix Error", f"Operation failed:\n{e}")
+
+    def unit_converter(self):
+        input_text = self.entry.get("1.0", tk.END).strip()
+        parts = input_text.lower().split(" to ")
+        if len(parts) != 2:
+            messagebox.showerror("Conversion Error", "Check format (e.g., '10 meters to feet')")
+            return
+        try:
+            value = self.ureg(parts[0])
+            target_unit = parts[1]
+            result = value.to(target_unit)
+            messagebox.showinfo("Conversion", f"{result}")
+        except Exception as e:
+            messagebox.showerror("Conversion Error", f"Error: {e}")
+
+    def partial_derivative(self):
+        expr_str = self.entry.get("1.0", tk.END).strip()
+        var = simpledialog.askstring("Partial Derivative", "Enter variable to differentiate by (e.g., x):")
+        if not var:
+            return
+        try:
+            sym_vars = sp.symbols(var)
+            expr = sp.sympify(expr_str.replace("^", "**"))
+            deriv = sp.diff(expr, sym_vars)
+            messagebox.showinfo("Partial Derivative", f"∂/∂{var} of {expr_str} = {deriv}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed partial derivative:\n{e}")
+
+    def definite_integral(self):
+        expr_str = self.entry.get("1.0", tk.END).strip()
+        var = simpledialog.askstring("Definite Integral", "Enter variable (e.g., x):")
+        if not var:
+            return
+        limits_str = simpledialog.askstring("Definite Integral", "Enter integration limits separated by comma (e.g., 0,10):")
+        if not limits_str:
+            return
+        try:
+            lower, upper = map(float, limits_str.split(","))
+            sym_var = sp.symbols(var)
+            expr = sp.sympify(expr_str.replace("^", "**"))
+            integral = sp.integrate(expr, (sym_var, lower, upper))
+            messagebox.showinfo("Definite Integral", f"∫ {expr_str} d{var} from {lower} to {upper} = {integral}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed integral:\n{e}")
+
+    def statistics_functions(self):
+        data_str = simpledialog.askstring("Statistics", "Enter comma-separated data points:")
+        if not data_str:
+            return
+        try:
+            data = list(map(float, data_str.split(",")))
+            mean = np.mean(data)
+            median = np.median(data)
+            var = np.var(data)
+            std = np.std(data)
+            result = (f"Mean: {mean}\nMedian: {median}\nVariance: {var}\nStandard Deviation: {std}")
+            messagebox.showinfo("Statistics", result)
+        except Exception as e:
+            messagebox.showerror("Statistics Error", f"Invalid data:\n{e}")
+
+    def define_macro(self):
+        name = simpledialog.askstring("Define Macro", "Enter macro name:")
+        if not name or not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", name):
+            messagebox.showerror("Error", "Invalid macro name")
+            return
+        lines = simpledialog.askstring("Define Macro", "Enter macro commands separated by semicolon ';':")
+        if not lines:
+            return
+        self.macros[name] = [line.strip() for line in lines.split(";")]
+        messagebox.showinfo("Macro Defined", f"Macro {name} defined.")
+        self.update_status()
+
+    def run_macro(self):
+        if not self.macros:
+            messagebox.showinfo("No Macros", "No macros defined.")
+            return
+        names = "\n".join(self.macros.keys())
+        name = simpledialog.askstring("Run Macro", f"Available macros:\n{names}\nEnter macro name to run:")
+        if not name or name not in self.macros:
+            messagebox.showerror("Error", "Macro not found.")
+            return
+        try:
+            for cmd in self.macros[name]:
+                self.entry.delete("1.0", tk.END)
+                self.entry.insert(tk.END, cmd)
+                self.calculate()
+            messagebox.showinfo("Macro", f"Macro {name} executed.")
+        except Exception as e:
+            messagebox.showerror("Macro Error", f"Error executing macro:\n{e}")
+
+    def bind_shortcuts(self):
+        # Keyboard shortcuts for main actions
+        self.root.bind("<Return>", lambda e: self.calculate())
+        self.root.bind("<Control-c>", lambda e: self.clear_expression())
+        self.root.bind("<Control-h>", lambda e: self.show_history())
+        self.root.bind("<Control-p>", lambda e: self.plot_function())
+        self.root.bind("<Control-m>", lambda e: self.toggle_mode())
+        self.root.bind("<Control-t>", lambda e: self.toggle_theme())
+        self.root.bind("<Control-s>", lambda e: self.save_session())
+        self.root.bind("<Control-l>", lambda e: self.load_session())
+        # More can be added...
 
     def handle_button(self, label):
         if label == "=":
@@ -218,8 +483,90 @@ class ScientificCalculator:
             self.memory_recall()
         elif label == "MC":
             self.memory_clear()
+        elif label == "PLOT":
+            self.plot_function()
+        elif label == "MULTI PLOT":
+            self.multi_plot()
+        elif label == "DEF FUNC":
+            self.define_function()
+        elif label == "USE FUNC":
+            self.use_function()
+        elif label == "SOLVE":
+            self.solve_equation()
+        elif label == "MATRIX":
+            self.matrix_operations()
+        elif label == "COMPLEX":
+            self.add_to_expression("j")
+        elif label == "CLEAR FUNCS":
+            self.custom_functions.clear()
+            messagebox.showinfo("Functions", "All custom functions cleared.")
+            self.update_status()
+        elif label == "SAVE":
+            self.save_session()
+        elif label == "LOAD":
+            self.load_session()
+        elif label == "EXIT":
+            self.root.destroy()
+        elif label == "PART DERIV":
+            self.partial_derivative()
+        elif label == "INTEG":
+            self.definite_integral()
+        elif label == "STAT":
+            self.statistics_functions()
+        elif label == "DEF MACRO":
+            self.define_macro()
+        elif label == "RUN MACRO":
+            self.run_macro()
+        elif label == "CLEAR MACROS":
+            self.macros.clear()
+            messagebox.showinfo("Macros", "All macros cleared.")
+            self.update_status()
+        elif label == "MEM+":
+            self.memory_add_button()
+        elif label == "MEM-":
+            self.memory_subtract_button()
         else:
             self.add_to_expression(label)
+
+    def save_session(self):
+        file_path = filedialog.asksaveasfilename(defaultextension=".json", filetypes=[("JSON files", "*.json")])
+        if not file_path:
+            return
+        data = {
+            "history": self.history,
+            "memory": self.memory,
+            "last_answer": self.last_answer,
+            "custom_functions": self.custom_functions,
+            "macros": self.macros,
+            "theme": self.theme,
+            "mode": self.mode,
+        }
+        try:
+            with open(file_path, "w") as f:
+                json.dump(data, f)
+            messagebox.showinfo("Save", "Session saved successfully.")
+        except Exception as e:
+            messagebox.showerror("Save Error", f"Failed to save session:\n{e}")
+
+    def load_session(self):
+        file_path = filedialog.askopenfilename(filetypes=[("JSON files", "*.json")])
+        if not file_path:
+            return
+        try:
+            with open(file_path, "r") as f:
+                data = json.load(f)
+            self.history = data.get("history", [])
+            self.memory = data.get("memory", 0)
+            self.last_answer = data.get("last_answer", "0")
+            self.custom_functions = data.get("custom_functions", {})
+            self.macros = data.get("macros", {})
+            self.theme = data.get("theme", "dark")
+            self.mode = data.get("mode", "DEG")
+            self.update_status()
+            self.set_theme()
+            messagebox.showinfo("Load", "Session loaded successfully.")
+        except Exception as e:
+            messagebox.showerror("Load Error", f"Failed to load session:\n{e}")
 
 if __name__ == "__main__":
     root = tk.Tk()
