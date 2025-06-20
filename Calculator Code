@@ -1,0 +1,100 @@
+import tkinter as tk
+from tkinter import messagebox
+import math
+
+class ScientificCalculator:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Scientific Calculator")
+        self.expression = ""
+        self.history = []
+        self.mode = "DEG"  # DEG or RAD
+
+        self.entry = tk.Entry(root, width=40, borderwidth=5, font=("Arial", 16))
+        self.entry.grid(row=0, column=0, columnspan=5, padx=10, pady=10)
+
+        self.create_buttons()
+
+    def add_to_expression(self, value):
+        self.expression += str(value)
+        self.update_entry()
+
+    def clear_expression(self):
+        self.expression = ""
+        self.update_entry()
+
+    def delete_last(self):
+        self.expression = self.expression[:-1]
+        self.update_entry()
+
+    def update_entry(self):
+        self.entry.delete(0, tk.END)
+        self.entry.insert(0, self.expression)
+
+    def calculate(self):
+        try:
+            expr = self.expression.replace("^", "**")
+
+            if self.mode == "DEG":
+                expr = expr.replace("sin(", "math.sin(math.radians(")
+                expr = expr.replace("cos(", "math.cos(math.radians(")
+                expr = expr.replace("tan(", "math.tan(math.radians(")
+            else:
+                expr = expr.replace("sin(", "math.sin(")
+                expr = expr.replace("cos(", "math.cos(")
+                expr = expr.replace("tan(", "math.tan(")
+
+            expr = expr.replace("log(", "math.log(")
+            expr = expr.replace("sqrt(", "math.sqrt(")
+            expr = expr.replace("exp(", "math.exp(")
+            expr = expr.replace("pi", str(math.pi))
+            expr = expr.replace("e", str(math.e))
+
+            result = eval(expr, {"__builtins__": {}}, {"math": math})
+            self.history.append(f"{self.expression} = {result}")
+            self.expression = str(result)
+            self.update_entry()
+        except Exception as e:
+            messagebox.showerror("Error", f"Invalid Expression\n{e}")
+
+    def toggle_mode(self):
+        self.mode = "RAD" if self.mode == "DEG" else "DEG"
+        messagebox.showinfo("Mode Toggled", f"Switched to {self.mode} mode")
+
+    def show_history(self):
+        history_text = "\n".join(self.history[-10:] or ["No history yet."])
+        messagebox.showinfo("History", history_text)
+
+    def create_buttons(self):
+        buttons = [
+            ("7", 1, 0), ("8", 1, 1), ("9", 1, 2), ("/", 1, 3), ("sin(", 1, 4),
+            ("4", 2, 0), ("5", 2, 1), ("6", 2, 2), ("*", 2, 3), ("cos(", 2, 4),
+            ("1", 3, 0), ("2", 3, 1), ("3", 3, 2), ("-", 3, 3), ("tan(", 3, 4),
+            ("0", 4, 0), (".", 4, 1), ("+", 4, 2), ("^", 4, 3), ("sqrt(", 4, 4),
+            ("log(", 5, 0), ("exp(", 5, 1), ("pi", 5, 2), ("e", 5, 3), ("(", 5, 4),
+            (")", 6, 0), ("C", 6, 1), ("DEL", 6, 2), ("=", 6, 3), ("HIST", 6, 4),
+            ("MODE", 7, 0)
+        ]
+
+        for (text, row, col) in buttons:
+            action = lambda x=text: self.handle_button(x)
+            tk.Button(self.root, text=text, width=6, height=2, command=action).grid(row=row, column=col, padx=2, pady=2)
+
+    def handle_button(self, label):
+        if label == "=":
+            self.calculate()
+        elif label == "C":
+            self.clear_expression()
+        elif label == "DEL":
+            self.delete_last()
+        elif label == "HIST":
+            self.show_history()
+        elif label == "MODE":
+            self.toggle_mode()
+        else:
+            self.add_to_expression(label)
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    calc = ScientificCalculator(root)
+    root.mainloop()
