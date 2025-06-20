@@ -12,7 +12,7 @@
  GUI with tkinter
 
 🔁 TO-DO LIST:
-✅ 🔹 1. 📐 Advanced Math Capabilities
+✅ 🔹 1. Advanced Math Capabilities
  Add factorial n!
 
  Add modulus %
@@ -25,7 +25,7 @@
 
  Add log base n (e.g. log2(x))
 
-🔹 2. 🧮 Expression Enhancements
+✅🔹 2. Expression Enhancements
  Add expression parser to auto-balance parentheses
 
  Add support for ANS (previous answer)
